@@ -235,6 +235,7 @@ class Seq2SeqTrainer():
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
                         self.model.save_pretrained(self.saving_path)
+                        self.tokenizer.save_pretrained(self.saving_path)
 
                     if self.callbacks:
                         self.callbacks.run_eval_end_callbacks(
