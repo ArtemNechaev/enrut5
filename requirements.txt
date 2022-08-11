@@ -1,0 +1,9 @@
+apex==0.9.10dev
+datasets==2.4.0
+ipython==8.4.0
+matplotlib==3.5.1
+numpy==1.22.2
+pandas==1.4.1
+sentencepiece==0.1.96
+torch==1.11.0+cu113
+transformers==4.20.0
