@@ -113,12 +113,14 @@ class Seq2SeqTrainer():
     def data2device(self, data: Dict):
         return {k: v.to(self.device) for k, v in data.items()}
 
-    def evaluation(self, val_dataloader: DataLoader, max_eval_batches: int, generate_func: Optional[Callable] = None, **eval_generation_kwargs):
+    def evaluation(self, val_dataloader: DataLoader, max_eval_batches = None, generate_func: Optional[Callable] = None, **eval_generation_kwargs):
         val_loss = 0
         eval_outputs = {"preds": [], "targets": []}
-
+        if max_eval_batches is None:
+            max_eval_batches = len(val_dataloader)
+            
         for eval_step, val_batch in enumerate(val_dataloader):
-            if eval_step > self.max_eval_batches:
+            if eval_step > max_eval_batches:
                 break
 
             val_batch = self.data2device(val_batch)
@@ -126,12 +128,11 @@ class Seq2SeqTrainer():
             with torch.no_grad():
                 outputs = self.model(**val_batch)
                 val_loss += outputs.loss.item()
+                
                 if not generate_func:
-                    outputs = self.model.generate(input_ids=val_batch["input_ids"],
-                                                  attention_mask=val_batch["attention_mask"],
-                                                  **eval_generation_kwargs)
-                else:
-                    outputs = generate_func(input_ids=val_batch["input_ids"],
+                    generate_func = self.model.generate
+
+                outputs = generate_func(input_ids=val_batch["input_ids"],
                                             attention_mask=val_batch["attention_mask"],
                                             **eval_generation_kwargs)
 
@@ -235,6 +236,7 @@ class Seq2SeqTrainer():
                     if val_loss < best_val_loss:
                         best_val_loss = val_loss
                         self.model.save_pretrained(self.saving_path)
+                        self.tokenizer.save_pretrained(self.saving_path)
 
                     if self.callbacks:
                         self.callbacks.run_eval_end_callbacks(
