@@ -1,12 +1,15 @@
-from typing import List
+from typing import List, Optional, Dict
 from datasets import load_dataset, concatenate_datasets, Dataset, DatasetDict
+from transformers import DataCollatorForSeq2Seq, PreTrainedModel, PreTrainedTokenizer
 import pickle
 import random
 import pandas as pd
 import random
 
 
-def get_translation_dataset(tokenizer, source_lang=None, target_lang=None, max_examples_by_words = 100, **kwargs):
+def get_translation_dataset(tokenizer: PreTrainedTokenizer, source_lang=None, target_lang=None,
+                            max_examples_by_words=100,
+                            not_learned_words: Optional[List] = None, **kwargs):
 
     both_directions = (not source_lang and not target_lang)
 
@@ -22,6 +25,9 @@ def get_translation_dataset(tokenizer, source_lang=None, target_lang=None, max_e
     for split in ['train', 'test']:
         with open(f'data/translation_dataset_{split}.pickle', 'rb') as f:
             en_dict = pickle.load(f)
+        if split == 'train' and not_learned_words:
+            en_dict = {k: v for k, v in en_dict.items()
+                       if k in not_learned_words}
 
         examples = []
         for list_of_examples in en_dict.values():
@@ -54,7 +60,8 @@ def get_translation_dataset(tokenizer, source_lang=None, target_lang=None, max_e
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
 
-    remove_columns = translation_dataset.column_names[list(translation_dataset.keys())[0]]
+    remove_columns = translation_dataset.column_names[list(
+        translation_dataset.keys())[0]]
     return translation_dataset.map(preprocess_function, batched=True, remove_columns=remove_columns)
 
 

@@ -128,7 +128,7 @@ class Seq2SeqTrainer():
             with torch.no_grad():
                 outputs = self.model(**val_batch)
                 val_loss += outputs.loss.item()
-                
+
                 if not generate_func:
                     generate_func = self.model.generate
 
