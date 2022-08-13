@@ -9,7 +9,7 @@ import random
 
 def get_translation_dataset(tokenizer: PreTrainedTokenizer, source_lang=None, target_lang=None,
                             max_examples_by_words=100,
-                            not_learned_words: Optional[List] = None, prefix='translate', data_path='data/translation_dataset',
+                            not_learned_words: Optional[List] = None, prefix='translate', data_path='translation_dataset',
                             split = ['train', 'test'],
                             **kwargs):
 
@@ -38,7 +38,7 @@ def get_translation_dataset(tokenizer: PreTrainedTokenizer, source_lang=None, ta
             random.shuffle(list_of_examples)
             examples.extend(list_of_examples[:max_examples_by_words])
 
-        translation_dataset[split] = Dataset.from_dict(
+        translation_dataset[s] = Dataset.from_dict(
             {'translation': examples})
 
     def preprocess_function(examples):
