@@ -9,9 +9,13 @@ import random
 
 def get_translation_dataset(tokenizer: PreTrainedTokenizer, source_lang=None, target_lang=None,
                             max_examples_by_words=100,
-                            not_learned_words: Optional[List] = None, **kwargs):
+                            not_learned_words: Optional[List] = None, prefix='translate', data_path='data/translation_dataset',
+                            split = ['train', 'test'],
+                            **kwargs):
 
     both_directions = (not source_lang and not target_lang)
+    if isinstance(split, str):
+         split = [split]
 
     if both_directions:
         source_lang = 'en'
@@ -22,10 +26,10 @@ def get_translation_dataset(tokenizer: PreTrainedTokenizer, source_lang=None, ta
 
     translation_dataset = DatasetDict()
 
-    for split in ['train', 'test']:
-        with open(f'data/translation_dataset_{split}.pickle', 'rb') as f:
+    for s in split:
+        with open(f'{data_path.strip()}/{s}.pickle', 'rb') as f:
             en_dict = pickle.load(f)
-        if split == 'train' and not_learned_words:
+        if s == 'train' and not_learned_words:
             en_dict = {k: v for k, v in en_dict.items()
                        if k in not_learned_words}
 
@@ -38,18 +42,19 @@ def get_translation_dataset(tokenizer: PreTrainedTokenizer, source_lang=None, ta
             {'translation': examples})
 
     def preprocess_function(examples):
-        prefix = "translate"
         inputs, targets = [], []
 
         for example in examples["translation"]:
 
-            inputs.append(
-                prefix + f' {source_lang}-{target_lang}: ' + example[source_lang])
+            task_prefix = prefix + \
+                f' {source_lang}-{target_lang}: ' if prefix is not None else ''
+            inputs.append(task_prefix + example[source_lang])
             targets.append(example[target_lang])
 
             if both_directions:
-                inputs.append(
-                    prefix + f' {target_lang}-{source_lang}: ' + example[target_lang])
+                task_prefix = prefix + \
+                    f' {target_lang}-{source_lang}: ' if prefix is not None else ''
+                inputs.append(task_prefix + example[target_lang])
                 targets.append(example[source_lang])
 
         model_inputs = tokenizer(inputs, max_length=128, truncation=True)
