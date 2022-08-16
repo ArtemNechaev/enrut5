@@ -1,6 +1,6 @@
 import torch
 
-class Genrator():
+class Generator():
     def __init__(self, model, tokenizer) -> None:
         self.model = model
         self.tokenizer = tokenizer

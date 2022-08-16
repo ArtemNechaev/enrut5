@@ -1,10 +1,12 @@
 from typing import Callable, Dict, List, Optional, Tuple
 from transformers import DataCollatorForSeq2Seq, PreTrainedModel, PreTrainedTokenizer
+from datasets import Dataset
 import torch
 from torch.utils.data import RandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from IPython.display import clear_output
 import matplotlib.pyplot as plt
+import inspect
 
 import numpy as np
 import os
@@ -33,7 +35,7 @@ class TrainerCallbacksList():
 
 
 class Seq2SeqTrainer():
-    def __init__(self, train_dataset, val_dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer,
+    def __init__(self, train_dataset: Dataset, val_dataset: Dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer,
                  batch_size, num_epoch, grad_acc_step=1, max_grad_norm=1,  eval_batch_size=None,
                  max_eval_batches=float('inf'), eval_generation_kwargs: Dict = {'num_beams': 1, 'max_new_tokens': 30},
                  lr=5e-5, weight_decay=0,
@@ -136,10 +138,15 @@ class Seq2SeqTrainer():
                                             attention_mask=val_batch["attention_mask"],
                                             **eval_generation_kwargs)
 
-                eval_outputs['preds'] += self.tokenizer.batch_decode(
-                    outputs, skip_special_tokens=True)
-                eval_outputs['targets'] += self.tokenizer.batch_decode(
-                    val_batch['decoder_input_ids'], skip_special_tokens=True)
+                eval_outputs['preds'].extend(self.tokenizer.batch_decode(
+                    outputs, skip_special_tokens=True))
+
+                if 'targets' not in self.val_dataset.column_names:
+                    eval_outputs['targets'].extend([[_] for _ in self.tokenizer.batch_decode(
+                        val_batch['decoder_input_ids'], skip_special_tokens=True)])
+
+        if not eval_outputs['targets'] and 'targets' in self.val_dataset.column_names:
+            eval_outputs['targets'] = self.val_dataset['targets'][:len(eval_outputs['preds'])]
 
         val_loss = val_loss/max_eval_batches
         return val_loss, eval_outputs
@@ -150,11 +157,17 @@ class Seq2SeqTrainer():
 
         best_val_loss = float('inf')
 
-        train_dataloader = DataLoader(self.train_dataset, batch_size=self.batch_size,
+        forward_args = inspect.signature(self.model.forward).parameters.keys()
+
+        remove_columns = [c for c in self.train_dataset.column_names if c not in forward_args]
+        train_dataloader = DataLoader(self.train_dataset.remove_columns(remove_columns), batch_size=self.batch_size,
                                       collate_fn=self.data_collator,
                                       sampler=self.sampler)
+
+        
+        remove_columns = [c for c in self.val_dataset.column_names if c not in forward_args]
         val_dataloader = DataLoader(
-            self.val_dataset, batch_size=self.eval_batch_size, collate_fn=self.data_collator)
+            self.val_dataset.remove_columns(remove_columns), batch_size=self.eval_batch_size, collate_fn=self.data_collator, shuffle=False)
 
         if self.max_eval_batches is None:
             self.max_eval_batches = len(val_dataloader)
@@ -214,7 +227,7 @@ class Seq2SeqTrainer():
                     continue
 
                 # Evaluation
-                if step % self.eval_freq == 0 or step == len(train_dataloader)-1:
+                if step != 0 and (step % self.eval_freq == 0 or step == len(train_dataloader)-1):
 
                     val_loss, eval_outputs = self.evaluation(
                         val_dataloader, self.max_eval_batches, **self.eval_generation_kwargs)
