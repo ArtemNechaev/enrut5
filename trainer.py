@@ -15,23 +15,23 @@ import gc
 
 class TrainerCallbacksList():
     def __init__(self, on_startup_callbacks: List[Callable] = [],
-                 on_eval_end_callback: List[Callable] = [],
-                 on_start_train_callbacks: List[Callable] = []):
-        self.on_startup_callbacks = on_startup_callbacks
-        self.on_eval_end_callback = on_eval_end_callback
-        self.on_start_train_callbacks = on_start_train_callbacks
+                 on_end_eval_callback: List[Callable] = [],
+                 on_start_train_step_callbacks: List[Callable] = [],
+                 on_end_train_step_callbacks: List[Callable] = []):
 
-    def run_startup_callbacks(self, trainer_instance):
-        for call in self.on_startup_callbacks:
-            call(self, trainer_instance)
+        self.callbacks = {
+            'on_startup': on_startup_callbacks,
+            'on_end_eval': on_end_eval_callback,
+            'on_start_train_step': on_start_train_step_callbacks,
+            'on_end_train_step': on_end_train_step_callbacks
+        }
 
-    def run_eval_end_callbacks(self, trainer_instance, **kwargs):
-        for call in self.on_eval_end_callback:
+
+    def run(self, name, trainer_instance, **kwargs):
+        callbacks = self.callbacks.get(name, [])
+        for call in callbacks:
             call(self, trainer_instance, **kwargs)
 
-    def run_start_train_callbacks(self, trainer_instance, **kwargs):
-        for call in self.on_start_train_callbacks:
-            call(self, trainer_instance, **kwargs)
 
 
 class Seq2SeqTrainer():
@@ -173,7 +173,7 @@ class Seq2SeqTrainer():
             self.max_eval_batches = len(val_dataloader)
 
         if self.callbacks:
-            self.callbacks.run_startup_callbacks(self)
+            self.callbacks.run('on_startup', self)
 
         for epoch in range(self.num_epoch):
             self.epoch = epoch
@@ -192,7 +192,7 @@ class Seq2SeqTrainer():
                     batch = self.data2device(batch)
 
                     if self.callbacks:
-                        self.callbacks.run_start_train_callbacks(self)
+                        self.callbacks.run('on_start_train_step', self)
 
                     outputs = self.model(**batch)
                     loss = outputs.loss
@@ -220,6 +220,11 @@ class Seq2SeqTrainer():
 
                     if loss.item() is np.NaN:
                         print('Loss is NaN')
+                    
+                    if self.callbacks:
+                        train_step_outputs = {'loss': loss, 'batch': batch}
+                        self.callbacks.run('on_end_train_step', self, **train_step_outputs)
+                    
 
                 except RuntimeError:
                     torch.cuda.empty_cache()
@@ -252,8 +257,7 @@ class Seq2SeqTrainer():
                         self.tokenizer.save_pretrained(self.saving_path)
 
                     if self.callbacks:
-                        self.callbacks.run_eval_end_callbacks(
-                            self, **eval_outputs)
+                        self.callbacks.run('on_end_eval', self, **eval_outputs)
 
                 # plot online loss
                 if self.freq_online_loss_plot > 0 and step % self.freq_online_loss_plot == 0:
