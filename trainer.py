@@ -26,12 +26,10 @@ class TrainerCallbacksList():
             'on_end_train_step': on_end_train_step_callbacks
         }
 
-
     def run(self, name, trainer_instance, **kwargs):
         callbacks = self.callbacks.get(name, [])
         for call in callbacks:
             call(self, trainer_instance, **kwargs)
-
 
 
 class Seq2SeqTrainer():
@@ -115,12 +113,18 @@ class Seq2SeqTrainer():
     def data2device(self, data: Dict):
         return {k: v.to(self.device) for k, v in data.items()}
 
-    def evaluation(self, val_dataloader: DataLoader, max_eval_batches = None, generate_func: Optional[Callable] = None, **eval_generation_kwargs):
+    def evaluation(self, val_dataloader=None, max_eval_batches=None, generate_func: Optional[Callable] = None, **eval_generation_kwargs):
+        if val_dataloader is None:
+            forward_args = inspect.signature(self.model.forward).parameters.keys()
+            remove_columns = [c for c in self.val_dataset.column_names if c not in forward_args]
+            val_dataloader = DataLoader(
+                self.val_dataset.remove_columns(remove_columns), batch_size=self.eval_batch_size, collate_fn=self.data_collator, shuffle=False)
+
         val_loss = 0
         eval_outputs = {"preds": [], "targets": []}
         if max_eval_batches is None:
             max_eval_batches = len(val_dataloader)
-            
+
         for eval_step, val_batch in enumerate(val_dataloader):
             if eval_step > max_eval_batches:
                 break
@@ -135,8 +139,8 @@ class Seq2SeqTrainer():
                     generate_func = self.model.generate
 
                 outputs = generate_func(input_ids=val_batch["input_ids"],
-                                            attention_mask=val_batch["attention_mask"],
-                                            **eval_generation_kwargs)
+                                        attention_mask=val_batch["attention_mask"],
+                                        **eval_generation_kwargs)
 
                 eval_outputs['preds'].extend(self.tokenizer.batch_decode(
                     outputs, skip_special_tokens=True))
@@ -146,7 +150,8 @@ class Seq2SeqTrainer():
                         val_batch['decoder_input_ids'], skip_special_tokens=True)])
 
         if not eval_outputs['targets'] and 'targets' in self.val_dataset.column_names:
-            eval_outputs['targets'] = self.val_dataset['targets'][:len(eval_outputs['preds'])]
+            eval_outputs['targets'] = self.val_dataset['targets'][:len(
+                eval_outputs['preds'])]
 
         val_loss = val_loss/max_eval_batches
         return val_loss, eval_outputs
@@ -164,7 +169,6 @@ class Seq2SeqTrainer():
                                       collate_fn=self.data_collator,
                                       sampler=self.sampler)
 
-        
         remove_columns = [c for c in self.val_dataset.column_names if c not in forward_args]
         val_dataloader = DataLoader(
             self.val_dataset.remove_columns(remove_columns), batch_size=self.eval_batch_size, collate_fn=self.data_collator, shuffle=False)
@@ -220,11 +224,11 @@ class Seq2SeqTrainer():
 
                     if loss.item() is np.NaN:
                         print('Loss is NaN')
-                    
+
                     if self.callbacks:
                         train_step_outputs = {'loss': loss, 'batch': batch}
-                        self.callbacks.run('on_end_train_step', self, **train_step_outputs)
-                    
+                        self.callbacks.run(
+                            'on_end_train_step', self, **train_step_outputs)
 
                 except RuntimeError:
                     torch.cuda.empty_cache()
