@@ -37,7 +37,7 @@ class TrainerCallbacksList():
 class Seq2SeqTrainer():
     def __init__(self, train_dataset: Dataset, val_dataset: Dataset, model: PreTrainedModel, tokenizer: PreTrainedTokenizer,
                  batch_size, num_epoch, grad_acc_step=1, max_grad_norm=1,  eval_batch_size=None,
-                 max_eval_batches=float('inf'), eval_generation_kwargs: Dict = {'num_beams': 1, 'max_new_tokens': 30},
+                 max_eval_batches=None, eval_generation_kwargs: Dict = {'num_beams': 1, 'max_new_tokens': 30},
                  lr=5e-5, weight_decay=0,
                  optimizer=None, scheduler=None,
                  metrics: List[Tuple[str, Callable]] = [],
