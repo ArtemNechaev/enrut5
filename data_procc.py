@@ -101,7 +101,7 @@ def _drop_duplicates(dataset,  drop_duplicates_column, add_targets_column, targe
 
     return dataset
 
-def load_tokenized_dataset(path, tokenizer, source, target, prefix=None,
+def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=None,
                            max_sentenses_by_words=None, wish_words = None,
                            drop_duplicates_column=None, drop_duplicates_split=None, delete_original_columns=False,
                            add_targets_column=False,
@@ -111,7 +111,10 @@ def load_tokenized_dataset(path, tokenizer, source, target, prefix=None,
         preprocess_function = _get_preprocess_function(
             tokenizer, source, target, prefix, **tokenizer_kwargs)
 
-    dataset = load_from_disk(path)
+    if isinstance(path_or_dataset, Dataset):
+        dataset = path_or_dataset
+    else:
+        dataset = load_from_disk(path_or_dataset)
 
 
     if isinstance(dataset, DatasetDict):
