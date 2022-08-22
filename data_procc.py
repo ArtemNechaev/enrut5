@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 TRANSLATE_PARAMS_RU_EN = {
-    'path': 'translation/ru-en',
+    'path_or_dataset': 'translation/ru-en',
     'source': 'ru',
     'target': 'en',
     'prefix': 'translate ru-en: ',
@@ -19,7 +19,7 @@ TRANSLATE_PARAMS_RU_EN = {
 }
 
 TRANSLATE_PARAMS_EN_RU = {
-    'path': 'translation/en-ru',
+    'path_or_dataset': 'translation/en-ru',
     'source': 'en',
     'target': 'ru',
     'prefix': 'translate en-ru: ',

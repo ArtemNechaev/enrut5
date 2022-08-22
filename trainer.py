@@ -113,6 +113,11 @@ class Seq2SeqTrainer():
     def data2device(self, data: Dict):
         return {k: v.to(self.device) for k, v in data.items()}
 
+
+    def compute_loss(self, batch, **kwargs):
+        loss = self.model(**batch, **kwargs).loss
+        return loss
+
     def evaluation(self, val_dataloader=None, max_eval_batches=None, generate_func: Optional[Callable] = None, **eval_generation_kwargs):
         if val_dataloader is None:
             forward_args = inspect.signature(self.model.forward).parameters.keys()
@@ -132,8 +137,8 @@ class Seq2SeqTrainer():
             val_batch = self.data2device(val_batch)
             self.model.eval()
             with torch.no_grad():
-                outputs = self.model(**val_batch)
-                val_loss += outputs.loss.item()
+
+                val_loss += self.compute_loss(val_batch).item()
 
                 if not generate_func:
                     generate_func = self.model.generate
@@ -198,8 +203,7 @@ class Seq2SeqTrainer():
                     if self.callbacks:
                         self.callbacks.run('on_start_train_step', self)
 
-                    outputs = self.model(**batch)
-                    loss = outputs.loss
+                    loss = self.compute_loss(batch)
 
                     if self.fp16:
                         with amp.scale_loss(loss, self.optimizer) as scaled_loss:
@@ -226,7 +230,7 @@ class Seq2SeqTrainer():
                         print('Loss is NaN')
 
                     if self.callbacks:
-                        train_step_outputs = {'loss': loss, 'batch': batch}
+                        train_step_outputs = {'loss': loss.item(), 'batch': batch}
                         self.callbacks.run(
                             'on_end_train_step', self, **train_step_outputs)
 
