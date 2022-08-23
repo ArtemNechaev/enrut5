@@ -111,7 +111,7 @@ def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=No
         preprocess_function = _get_preprocess_function(
             tokenizer, source, target, prefix, **tokenizer_kwargs)
 
-    if isinstance(path_or_dataset, Dataset):
+    if isinstance(path_or_dataset, (Dataset, DatasetDict)):
         dataset = path_or_dataset
     else:
         dataset = load_from_disk(path_or_dataset)
@@ -155,6 +155,7 @@ def load_and_prepare_daily_dialogs():
     
     users = ['user1>>: ', 'user2>>: ']
     def prepare_dilogs(examples):
+        model_inputs = {}
         inputs, targets = [], []
         for example in examples['dialog']:
 
