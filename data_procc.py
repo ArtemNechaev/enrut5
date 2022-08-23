@@ -147,3 +147,25 @@ def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=No
    
 
     return dataset.map(preprocess_function, batched=True, remove_columns=remove_columns)
+
+def load_and_prepare_daily_dialogs():
+    dataset = load_dataset('daily_dialog')
+    dataset['train'] = concatenate_datasets ([dataset['train'], dataset['validation']])
+    dataset.pop('validation')
+    
+    users = ['user1>>: ', 'user2>>: ']
+    def prepare_dilogs(examples):
+        inputs, targets = [], []
+        for example in examples['dialog']:
+
+            example_with_userid = [u+e for e, u in zip(example, users*(1 + len(example)//2))]
+            for i in range(len(example)-1):
+                inputs.append(' '.join(example_with_userid[:i+1]))
+                targets.append(example[i+1])
+
+        model_inputs['source'] = inputs
+        model_inputs["target"] = targets
+        
+        return model_inputs
+    return dataset.map(prepare_dilogs, batched=True, remove_columns=dataset.column_names['train'])
+    
