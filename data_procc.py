@@ -154,11 +154,8 @@ def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=No
     return dataset.map(preprocess_function, batched=True, remove_columns=remove_columns)
 
 
-def build_daily_dialogs():
-    dataset = load_dataset('daily_dialog')
-    dataset['train'] = concatenate_datasets(
-        [dataset['train'], dataset['validation']])
-    dataset.pop('validation')
+def build_daily_dialogs(**kwargs):
+    dataset = load_dataset('daily_dialog', **kwargs)
 
     users = ['user1>>: ', 'user2>>: ']
 
@@ -196,7 +193,7 @@ def build_daily_dialogs():
     return PARAMS
 
 
-def build_wow(path, task='dialog',):
+def build_wow(path='dialogs/wow', task='dialog', **kwargs):
 
     wow_dataset = load_from_disk(path)
     dataset = DatasetDict()
@@ -232,9 +229,9 @@ def build_wow(path, task='dialog',):
     return PARAMS
 
 
-def build_cola():
+def build_cola(**kwargs):
     labels = ['acceptable', 'unacceptable']
-    cola = load_dataset('glue', 'cola')
+    cola = load_dataset('glue', 'cola', **kwargs)
 
     def pre_procc(example):
         return {'source': example['sentence'], 'target': labels[example['label']]}
@@ -245,9 +242,9 @@ def build_cola():
     return PARAMS
 
 
-def build_stsb():
+def build_stsb(**kwargs):
 
-    stsb = load_dataset('glue', 'stsb')
+    stsb = load_dataset('glue', 'stsb', **kwargs)
 
     def pre_procc(example):
         return {
@@ -261,8 +258,8 @@ def build_stsb():
     return PARAMS
 
 
-def build_blended_skill_talk():
-    blended = load_dataset('blended_skill_talk')
+def build_blended_skill_talk(**kwargs):
+    blended = load_dataset('blended_skill_talk', **kwargs)
     dataset = DatasetDict()
     users = ["user1>>: ", "user2>>: "]
 
