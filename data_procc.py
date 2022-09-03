@@ -321,7 +321,7 @@ def build_russe(**kwargs):
     return PARAMS
 
 
-def translation(path, direction, **kwargs):
+def build_translation(path, direction, **kwargs):
     if direction == 'en-ru':
         PARAMS = TRANSLATE_PARAMS_EN_RU.copy()
     elif direction == 'ru-en':
