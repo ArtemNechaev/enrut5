@@ -1,3 +1,5 @@
+import requests
+from zipfile import ZipFile
 from typing import Sequence
 from datasets import load_dataset, concatenate_datasets, Dataset, DatasetDict, load_from_disk
 import pickle
@@ -6,7 +8,6 @@ import pandas as pd
 import numpy as np
 
 TRANSLATE_PARAMS_RU_EN = {
-    'path_or_dataset': 'translation/ru-en',
     'source': 'ru',
     'target': 'en',
     'prefix': 'translate ru-en: ',
@@ -19,7 +20,6 @@ TRANSLATE_PARAMS_RU_EN = {
 }
 
 TRANSLATE_PARAMS_EN_RU = {
-    'path_or_dataset': 'translation/en-ru',
     'source': 'en',
     'target': 'ru',
     'prefix': 'translate en-ru: ',
@@ -100,11 +100,11 @@ def _drop_duplicates(dataset,  drop_duplicates_column, add_targets_column, targe
     return dataset
 
 
-def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=None,
-                           max_sentenses_by_words=None, wish_words=None,
-                           drop_duplicates_column=None, drop_duplicates_split=None, delete_original_columns=False,
-                           add_targets_column=False,
-                           preprocess_function=None, **tokenizer_kwargs):
+def tokenize_dataset(path_or_dataset, tokenizer, source, target, prefix=None,
+                     max_sentenses_by_words=None, wish_words=None,
+                     drop_duplicates_column=None, drop_duplicates_split=None, delete_original_columns=False,
+                     add_targets_column=False,
+                     preprocess_function=None, **tokenizer_kwargs):
 
     if preprocess_function is None:
         preprocess_function = _get_preprocess_function(
@@ -123,6 +123,7 @@ def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=No
             if drop_duplicates_column:
                 drop_duplicates_split = dataset.keys(
                 ) if drop_duplicates_split is None else drop_duplicates_split
+
                 drop_duplicates_split = [drop_duplicates_split] if isinstance(
                     drop_duplicates_split, str) else drop_duplicates_split
 
@@ -154,18 +155,20 @@ def load_tokenized_dataset(path_or_dataset, tokenizer, source, target, prefix=No
     return dataset.map(preprocess_function, batched=True, remove_columns=remove_columns)
 
 
-def build_daily_dialogs(**kwargs):
+def build_daily_dialogs(add_greetings=False, **kwargs):
     dataset = load_dataset('daily_dialog', **kwargs)
 
     users = ['user1>>: ', 'user2>>: ']
-
-    greetings = [
-        ['Hello', 'Hi', 'How are you?', "I can't complain"],
-        ["Hey, What’s up?", "Hi! I’m great"],
-        ["Good afternoon", "Hello", "How are you doing?", "Awesome! You?"],
-        ["Hello", "Hello", "What's new?"]
-    ]
-    greetings = greetings * 500
+    if add_greetings:
+        greetings = [
+            ['Hello', 'Hi', 'How are you?', "I can't complain"],
+            ["Hey, What’s up?", "Hi! I’m great"],
+            ["Good afternoon", "Hello", "How are you doing?", "Awesome! You?"],
+            ["Hello", "Hello", "What's new?"]
+        ]
+        greetings = greetings * 500
+    else:
+        greetings = []
 
     def prepare_dialogs(examples):
         model_inputs = {}
@@ -230,15 +233,16 @@ def build_wow(path='dialogs/wow', task='dialog', **kwargs):
 
 
 def build_cola(**kwargs):
-    labels = ['acceptable', 'unacceptable']
+    labels = ['unacceptable', 'acceptable']
     cola = load_dataset('glue', 'cola', **kwargs)
 
     def pre_procc(example):
         return {'source': example['sentence'], 'target': labels[example['label']]}
 
     PARAMS = DIALOG_PARAMS.copy()
-    PARAMS['path_or_dataset'] = cola.map(pre_procc, remove_columns=cola.column_names['train'])
-    PARAMS['prefix']  = 'cola: '
+    PARAMS['path_or_dataset'] = cola.map(
+        pre_procc, remove_columns=cola.column_names['train'])
+    PARAMS['prefix'] = 'cola: '
     return PARAMS
 
 
@@ -254,7 +258,7 @@ def build_stsb(**kwargs):
 
     PARAMS = DIALOG_PARAMS.copy()
     PARAMS['path_or_dataset'] = stsb.map(pre_procc, remove_columns=stsb.column_names['train'])
-    PARAMS['prefix'] = 'stsb '
+    PARAMS['prefix'] = 'stsb: '
     return PARAMS
 
 
@@ -285,6 +289,44 @@ def build_blended_skill_talk(**kwargs):
 
         PARAMS = DIALOG_PARAMS.copy()
         PARAMS['path_or_dataset'] = dataset
+    return PARAMS
+
+
+def build_russe(**kwargs):
+    dataset = DatasetDict()
+    resp = requests.get(
+        'https://russiansuperglue.com/tasks/download/RUSSE', verify=False)
+
+    with open('superglue.zip', 'wb') as f:
+        f.write(resp.content)
+
+    with ZipFile('superglue.zip') as f:
+        f.extractall('superglue')
+
+    for split in ['train', 'val', 'test']:
+        d = load_dataset("json", data_files=f"superglue/RUSSE/{split}.jsonl")
+        if split == 'val':
+            split = 'validation'
+        dataset[split] = d['train']
+
+    def pre_procc(example):
+        return {
+                'source': f"{example['word']} sentence1: {example['sentence1']} sentence2: {example['sentence2']}",
+                'target': str(example['label'])
+        }
+    
+    PARAMS = DIALOG_PARAMS.copy()
+    PARAMS['path_or_dataset'] = dataset.map(pre_procc, remove_columns=dataset.column_names['train'])
+    PARAMS['prefix'] = 'russe: '
+    return PARAMS
+
+
+def translation(path, direction, **kwargs):
+    if direction == 'en-ru':
+        PARAMS = TRANSLATE_PARAMS_EN_RU.copy()
+    elif direction == 'ru-en':
+        PARAMS = TRANSLATE_PARAMS_RU_EN.copy()
+    PARAMS['path_or_dataset'] = path
     return PARAMS
 
 
