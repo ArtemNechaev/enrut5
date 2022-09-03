@@ -303,10 +303,11 @@ def build_russe(**kwargs):
     with ZipFile('superglue.zip') as f:
         f.extractall('superglue')
 
-    for split in ['train', 'val', 'test']:
+    for split in ['train', 'val' ]:
         d = load_dataset("json", data_files=f"superglue/RUSSE/{split}.jsonl")
         if split == 'val':
-            split = 'validation'
+            split = 'test'
+
         dataset[split] = d['train']
 
     def pre_procc(example):
@@ -319,7 +320,6 @@ def build_russe(**kwargs):
     PARAMS['path_or_dataset'] = dataset.map(pre_procc, remove_columns=dataset.column_names['train'])
     PARAMS['prefix'] = 'russe: '
     return PARAMS
-
 
 def build_translation(path, direction, **kwargs):
     if direction == 'en-ru':
